@@ -1,0 +1,21 @@
+# Archivos compilados de Java
+*.class
+*.jar
+*.war
+
+# Carpetas de compilación y salida
+/bin/
+/target/
+/out/
+/build/
+/.gradle/
+
+# Archivos de configuración de IDE (VS Code, IntelliJ, Eclipse)
+.vscode/
+.idea/
+*.iml
+*.iws
+
+# Sistema operativo (Windows/macOS/Linux)
+.DS_Store
+Thumbs.db
