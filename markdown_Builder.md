@@ -2,11 +2,13 @@
 
 ## ¿Qué es Builder?
 
-Builder es un patrón de diseño **creacional** que separa la **construcción** de un objeto complejo de su **representación final**. Permite construir el objeto paso a paso, usando exactamente el mismo proceso de construcción para producir **representaciones distintas** del mismo objeto.
+Builder es un patrón de diseño **creacional** (o sea, de los que sirven para crear objetos). Su idea principal es **separar el proceso de armar un objeto del objeto final que resulta**.
 
-En lugar de tener un constructor gigante con decenas de parámetros (muchos opcionales), o una explosión de subclases para cada combinación posible, Builder concentra la lógica de armado en clases separadas que saben cómo construir el objeto pieza por pieza.
+Dicho de otra forma: en lugar de crear un objeto de un solo golpe con todos sus datos, lo vas armando **paso a paso**, y puedes usar el mismo proceso para obtener **versiones distintas** del mismo objeto.
 
-A diferencia de los otros patrones creacionales, Builder no se enfoca en *qué* se crea, sino en *cómo* se crea: el énfasis está en el proceso de construcción.
+Piénsalo como una línea de ensamblaje en una fábrica: los pasos siempre son los mismos, pero según lo que pongas al final de la línea, sale un producto u otro.
+
+Builder no se preocupa por *qué* se crea, sino por *cómo* se crea.
 
 ---
 
@@ -14,64 +16,64 @@ A diferencia de los otros patrones creacionales, Builder no se enfoca en *qué* 
 
 ![Estructura general de Builder](imgs/builder-general-image.png)
 
-**Qué representa cada número de la figura:**
+**Qué significa cada número de la imagen:**
 
-1. **La interfaz Constructora (Builder)** declara los pasos de construcción que comparten todos los tipos de constructores concretos. No dice *cómo* se ejecuta cada paso, solo *qué* pasos existen.
-2. **Los Constructores Concretos (ConcreteBuilder)** ofrecen distintas implementaciones de esos pasos. Cada uno sabe cómo construir un producto específico, y pueden producir productos que no comparten una interfaz o jerarquía común entre sí.
-3. **Los Productos (Product)** son los objetos resultantes de la construcción. Los productos generados por distintos constructores no tienen por qué pertenecer a la misma jerarquía de clases.
-4. **La clase Directora (Director)** es opcional. Define el **orden** en el que se ejecutan los pasos de construcción, permitiendo encapsular y reutilizar configuraciones específicas del proceso.
-5. **El Cliente** asocia un constructor concreto con la directora (normalmente una sola vez, a través del constructor de la directora) y deja que sea ella quien orqueste el proceso paso a paso.
+1. **La interfaz Builder (el contrato)** es como una lista de pasos que todos los constructores deben saber hacer. No dice *cómo* se hace cada paso, solo *qué* pasos existen.
+2. **Los Constructores Concretos (los que trabajan)** son los que realmente ejecutan esos pasos. Cada uno sabe construir un producto diferente, y no tienen por qué parecerse entre sí.
+3. **Los Productos** son los objetos que salen al final. Ojo: los productos de distintos constructores pueden ser cosas totalmente distintas, sin ninguna relación entre ellos.
+4. **El Director (el jefe)** es opcional. Se encarga de decidir **en qué orden** se ejecutan los pasos. Esto sirve para guardar "recetas" y reutilizarlas.
+5. **El Cliente** es quien usa todo esto. Le dice al Director con qué constructor trabajar, y al final le pide el resultado al constructor.
 
 ---
 
 ## El problema
 
-Imagina que eres el dueño de una **concesionaria de autos**. Un cliente llega y te pide un **deportivo**. Necesita dos cosas:
+Imagina que eres el dueño de una **concesionaria de autos**. Llega un cliente y te pide un **deportivo**. Necesita dos cosas:
 
-1. El **auto físico**, para poder manejarlo.
-2. El **manual de usuario**, para saber cómo usar el GPS y la computadora de viaje.
+1. El **auto de verdad**, para manejarlo.
+2. El **manual**, para saber cómo funciona el GPS y la computadora.
 
-Modelar esto con las herramientas tradicionales de Java genera dos problemas:
+Si intentas resolver esto de la forma tradicional en Java, te topas con dos problemas:
 
-**Problema 1: El constructor telescópico.**
-Si intentas crear un auto con un solo constructor, tienes que pasarle todos los datos de golpe:
+**Problema 1: El constructor gigante.**
+Para crear un auto con un solo constructor, tienes que pasarle todo de golpe:
 
 ```java
 // Esto es lo que queremos EVITAR:
 new Coche("V8 Biturbo", 2, true, true);
-// ¿Qué significa cada true? ¿El primer true es GPS o computadora? Nadie lo sabe sin ir a la firma.
+// ¿Qué significa cada true? ¿El primero es el GPS o la computadora? Nadie lo sabe a simple vista.
 ```
 
-Con muchos atributos, la llamada se vuelve ilegible y es fácil equivocarse en el orden de dos `true` consecutivos.
+Cuando hay muchos datos, la línea se vuelve imposible de leer y es facilísimo equivocarse de orden.
 
-**Problema 2: La explosión de subclases.**
-Si intentas solucionarlo creando subclases para cada combinación posible, terminas con un desastre:
+**Problema 2: La explosión de clases.**
+Si intentas arreglarlo creando una clase por cada combinación, terminas con un montón de clases sin sentido:
 
 - `CocheConGPS`
 - `CocheConGPSYComputadora`
 - `CocheConGPSYComputadoraYTechoSolar`
-- ... y así hasta el infinito.
+- ... y así sin parar.
 
-Cada nueva característica duplica el número de clases. Peor aún: ahora necesitas hacer lo mismo para el **manual**, que tiene las mismas características que el auto. Duplicar toda esa lógica es un mantenimiento infernal.
+Cada característica nueva multiplica las clases. Y lo peor: tienes que hacer lo mismo para el **manual**, que tiene los mismos datos que el auto. Duplicar todo eso es un dolor de cabeza.
 
 ---
 
 ## La solución
 
-Se extrae el código de construcción de la clase del producto y se mueve a objetos independientes llamados **constructores** (builders). La construcción se organiza en una serie de pasos (`construirMotor()`, `construirAsientos()`, `construirGPS()`...).
+La idea es **sacar el proceso de armado fuera de la clase del producto** y ponerlo en clases aparte llamadas **constructores** (builders). El armado se divide en pasos (`construirMotor()`, `construirAsientos()`, `construirGPS()`...).
 
-La clave está en que **un mismo proceso de construcción** puede producir productos distintos si se le asigna un constructor diferente:
+Lo bonito es que **el mismo proceso de armado** puede dar productos distintos según quién lo ejecute:
 
-- El **Jefe de Taller (Director)** tiene una **receta** para armar un deportivo: motor, luego asientos, luego GPS, luego computadora de viaje. No sabe si está armando un auto o un manual, solo sabe el *orden* de los pasos.
-- El **Mecánico (CocheBuilder)** recibe esas órdenes y **físicamente** instala cada pieza en el objeto `Coche`.
-- El **Redactor Técnico (ManualBuilder)** recibe las **mismas** órdenes, pero en lugar de atornillar nada, **escribe cada especificación** en el objeto `Manual`.
+- El **Jefe de Taller (Director)** tiene una **receta** para armar un deportivo: primero el motor, luego los asientos, luego el GPS, luego la computadora. Él no sabe si está armando un auto o un manual, solo sabe el orden de los pasos.
+- El **Mecánico (CocheBuilder)** recibe esas órdenes y **de verdad instala** cada pieza dentro del objeto `Coche`.
+- El **Redactor (ManualBuilder)** recibe **las mismas órdenes**, pero en lugar de instalar nada, **escribe cada dato** dentro del objeto `Manual`.
 
-Al final del proceso:
+Al final:
 
-- Si el Jefe trabajó con el Mecánico, el cliente recibe un **Coche físico**.
-- Si el Jefe trabajó con el Redactor, el cliente recibe un **Manual impreso**.
+- Si el Jefe trabajó con el Mecánico, el cliente recibe un **auto físico**.
+- Si el Jefe trabajó con el Redactor, el cliente recibe un **manual impreso**.
 
-Mismo proceso, productos completamente distintos, sin duplicar lógica.
+El mismo proceso, dos productos totalmente distintos, sin repetir lógica.
 
 ---
 
@@ -328,13 +330,13 @@ Auto listo para el cliente: Coche [Motor=V8 Biturbo, Asientos=2, GPS=true, Compu
 Manual listo para el cliente: Manual [Instrucciones para Motor=V8 Biturbo, Asientos=2, GPS=true, Computadora=true]
 ```
 
-Nota que el `JefeTaller` ejecutó **la misma receta** (`fabricarDeportivo()`) en ambos casos. La diferencia está en qué trabajador (builder) tenía asignado en cada momento: el resultado es un objeto `Coche` o un objeto `Manual`.
+Fíjate que el `JefeTaller` usó **la misma receta** (`fabricarDeportivo()`) en los dos casos. Lo único que cambió fue con qué trabajador estaba: por eso el resultado es un `Coche` o un `Manual`.
 
 ---
 
 ## Variante: Builder sin Director (Interfaz Fluida)
 
-En la práctica, muchas veces se omite el `JefeTaller`. Cuando el cliente necesita flexibilidad total y no hay recetas fijas, encadena los métodos del builder directamente (patrón conocido como **fluent interface**). El builder devuelve `this` en cada paso, permitiendo escribir la construcción como una sola frase.
+En la práctica, muchas veces no se usa un Jefe (Director). Cuando no hay recetas fijas y el cliente quiere armar las cosas a su manera, va llamando los pasos uno tras otro directamente. A esto se le llama **interfaz fluida**: cada método devuelve el mismo builder para poder encadenar llamadas como si fuera una sola frase.
 
 ```java
 // Computador.java (variante fluida, sin Director)
@@ -380,8 +382,8 @@ Computador pc = new Computador.ComputadorBuilder()
 
 **¿Cuándo usar cada variante?**
 
-- **Con Director (Jefe de Taller)**: cuando el orden de construcción es fijo, complejo, o se repite en muchos lugares. El Director encapsula las recetas.
-- **Sin Director (fluida)**: cuando el cliente necesita flexibilidad total para armar el objeto en el orden que quiera, y no hay recetas predefinidas.
+- **Con Director (Jefe de Taller)**: cuando el orden de los pasos siempre es el mismo y quieres reutilizar la receta en varios lugares.
+- **Sin Director (fluida)**: cuando el cliente necesita armar el objeto a su gusto, sin un orden fijo.
 
 ---
 
@@ -389,16 +391,16 @@ Computador pc = new Computador.ComputadorBuilder()
 
 **Úsalo cuando:**
 
-- Un objeto tiene muchos parámetros opcionales y quieres evitar constructores telescópicos.
-- Necesitas producir **distintas representaciones** de un mismo objeto usando los mismos pasos de construcción (el ejemplo del Coche y el Manual).
-- El proceso de construcción implica varios pasos que se benefician de leerse como una secuencia clara.
-- Quieres aislar el código de construcción complejo de la lógica de negocio del producto (Principio de Responsabilidad Única).
+- Un objeto tiene muchos datos, y la mayoría son opcionales.
+- Necesitas crear **versiones distintas** del mismo objeto usando los mismos pasos (como el Coche y el Manual).
+- El proceso de armado tiene varios pasos y se entiende mejor si se lee como una secuencia.
+- Quieres que la lógica de armado esté separada de la lógica del producto (cada cosa en su lugar).
 
 **Evítalo cuando:**
 
-- El objeto tiene dos o tres atributos obligatorios y ninguno opcional: un constructor normal es más simple y no necesita esta maquinaria adicional.
-- El proceso de construcción no varía ni se reutiliza: crear múltiples clases de builder para un único caso es sobre-ingeniería.
-- El orden de construcción no importa y el objeto es simple: una fluent interface es suficiente sin necesidad de interfaz `Builder` ni Director.
+- El objeto tiene dos o tres datos y todos son obligatorios: un constructor normal es más simple y no necesita tanto rollo.
+- El proceso de armado no cambia nunca y no se reutiliza: crear varias clases para un solo caso es exagerar.
+- El orden no importa y el objeto es simple: con la variante fluida basta.
 
 ---
 
@@ -406,9 +408,9 @@ Computador pc = new Computador.ComputadorBuilder()
 
 | Aspecto | Builder |
 |---|---|
-| **Categoría** | Creacional |
-| **Problema que resuelve** | Construcción de objetos complejos con muchos parámetros opcionales, o producción de distintas representaciones del mismo objeto |
-| **Mecanismo típico en Java** | Interfaz `Builder` con pasos, constructores concretos por producto, `Director` opcional para encapsular recetas |
-| **Ventaja principal** | Reutiliza el mismo proceso de construcción para producir productos distintos, y separa la construcción de la representación |
-| **Desventaja principal** | Aumenta el número de clases del sistema |
-| **Patrón relacionado** | **Abstract Factory** crea familias de objetos de una sola vez; **Builder** construye un objeto paso a paso y permite extraer el resultado al final |
+| **Tipo** | Creacional |
+| **Qué problema resuelve** | Crear objetos complejos con muchos datos opcionales, o generar varias versiones del mismo objeto |
+| **Cómo se hace en Java** | Una interfaz `Builder` con los pasos, uno o varios constructores concretos, y un `Director` opcional para las recetas |
+| **Lo mejor** | Reutilizas el mismo proceso para crear productos distintos, y separas el armado del producto |
+| **Lo malo** | Te obliga a crear más clases |
+| **Se parece a** | **Abstract Factory** crea familias completas de una sola vez; **Builder** las arma paso a paso y entrega al final |
